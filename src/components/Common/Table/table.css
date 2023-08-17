@@ -1,0 +1,31 @@
+.thHeader {
+    background-color: #f5f5f5;
+    padding: 12px;
+    font-weight: 500;
+    text-align: center;
+    color: #131119;
+}
+
+.tableSection {
+    border-collapse: collapse;
+    border: none;
+    background: #ffffff;
+    padding: 10px;
+}
+
+.tableCell {
+    cursor: auto;
+    color: #383838;
+}
+
+.tableCell:last-child {
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+
+.tableRow {
+    padding: 12px;
+    font-size: 12px;
+    color: #383838;
+    font-weight: 400;
+}

@@ -1,0 +1,17 @@
+textarea:hover {
+    border: 1px solid #8fb131;
+    background-color: #ffffff;
+}
+
+textarea {
+    border: 1px solid #f1f1f1;
+    background-color: #f1f1f1;
+}
+
+textarea:focus {
+    border: 1px solid #8fb131;
+    background-color: #ffffff;
+}
+textarea:focus-visible {
+    outline: #8fb131;
+}

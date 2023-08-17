@@ -1,0 +1,14 @@
+#root {
+    margin: 0;
+    display: flex;
+    min-width: 320px;
+    min-height: 100vh;
+    max-width: 100vw;
+}
+.toast-message {
+    background: darkblue;
+    color: #fff;
+    font-size: 20px;
+    width: 34vw;
+    padding: 30px 20px;
+}

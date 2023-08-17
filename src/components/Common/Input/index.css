@@ -1,0 +1,106 @@
+input:hover {
+    border: 1px solid #8fb131;
+    background-color: #ffffff;
+}
+
+input {
+    border: 1px solid #f1f1f1;
+    background-color: #f1f1f1;
+}
+
+input:focus {
+    border: 1px solid #8fb131;
+    background-color: #ffffff;
+}
+input:focus-visible {
+    outline: #8fb131;
+}
+.container {
+    display: block;
+    position: relative;
+    padding-left: 35px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    font-size: 22px;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+/* Hide the browser's default checkbox */
+.container input[type='checkbox'] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+/* Create a custom checkbox */
+.checkmark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 15px;
+    width: 15px;
+    border: 1px solid #c8c8c8;
+    border-radius: 6px;
+}
+
+/* On mouse-over, add a grey background color */
+/*.container:hover input ~ .checkmark {*/
+/*    background-color: #ccc;*/
+/*}*/
+
+/* When the checkbox is checked, add a #8fb131 background */
+.container input:checked ~ .checkmark {
+    border: 1px solid #8fb131;
+}
+
+/* Create the checkmark/indicator (hidden when not checked) */
+.checkmark:after {
+    content: '';
+    position: absolute;
+    display: none;
+}
+
+/* Show the checkmark when checked */
+.container input:checked ~ .checkmark:after {
+    display: block;
+}
+
+/* Style the checkmark/indicator */
+.container .checkmark:after {
+    left: 5px;
+    top: 2px;
+    width: 4px;
+    height: 7px;
+    border: solid #8fb131;
+    border-width: 0 1px 1px 0;
+    -webkit-transform: rotate(45deg);
+    -ms-transform: rotate(45deg);
+    transform: rotate(45deg);
+}
+select:hover {
+    border: 1px solid #8fb131;
+    background-color: #ffffff;
+}
+
+select {
+    border: 1px solid #f1f1f1;
+    background-color: #f1f1f1;
+}
+
+select:focus {
+    border: 1px solid #8fb131;
+    background-color: #ffffff;
+}
+select:focus-visible {
+    outline: #8fb131;
+}
+
+option:checked,
+option:hover {
+    background-color: #8fb131;
+}

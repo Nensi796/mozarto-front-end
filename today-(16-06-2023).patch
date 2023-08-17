@@ -1,0 +1,1898 @@
+Index: src/components/Admin/User/User.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/components/Admin/User/User.tsx b/src/components/Admin/User/User.tsx
+--- a/src/components/Admin/User/User.tsx	(revision Staged)
++++ b/src/components/Admin/User/User.tsx	(date 1686906095376)
+@@ -44,7 +44,7 @@
+ 
+ const User = () => {
+     const [currentPage, setCurrentPage] = useState(1);
+-    const [pageLimit, setPageLimit] = useState<number>(3);
++    const [pageLimit, setPageLimit] = useState<number>(10);
+     const [isOpen, setIsOpen] = useState<boolean>(false);
+     const [pageAreaData, setPageAreaData] = useState<IPagePermissions[]>([]);
+     const [accessAreaData, setAccessAreaData] = useState<IBrandsPermissions[]>(
+@@ -278,7 +278,7 @@
+                 );
+             });
+     };
+-
++    console.log('validationErrors', validationErrors);
+     const handleCreateNewUser = () => {
+         if (isEditUser && userData) {
+             const groupPermissionId = allGroups?.find(
+@@ -295,7 +295,7 @@
+                 email: userData.email,
+                 phone: userData.phone,
+                 job: userData.job,
+-                group: userData.group,
++                // group: userData.group,
+                 company: '64801a1b5476329156573a0c' as string,
+             };
+             Object.keys(payload).forEach((key: string) => {
+@@ -316,7 +316,7 @@
+                     job: userData.job,
+                     role: 'USER',
+                     isCustomGroup: false,
+-                    group: groupPermissionId,
++                    group: userData.group,
+                     company: '64801a1b5476329156573a0c' as string,
+                 };
+                 const editUserForNoGroups = {
+@@ -326,10 +326,13 @@
+                     phone: userData.phone,
+                     job: userData.job,
+                     role: 'USER',
++                    // group: userData.group,
++                    permissionId: userData.permissionId,
+                     brandsPermissions: accessAreaData,
+                     pageAreasPermissions: pageAreaData,
+                     company: '64801a1b5476329156573a0c' as string,
+                 };
++
+                 updateUser(
+                     userData._id,
+                     userData?.group === '2'
+@@ -339,11 +342,12 @@
+                     .then(() => {
+                         getUsers();
+                         setIsOpen(false);
++
+                         showToast('Successfully Updated');
+                     })
+                     .catch((err) => {
+                         showToast(
+-                            err?.errors?.[0]?.message || 'something went wrong',
++                            err?.message || 'something went wrong',
+                             'error'
+                         );
+                     });
+@@ -386,16 +390,19 @@
+                 setIsError(false);
+                 inviteUser(UserData)
+                     .then((result) => {
++                        // localStorage.setItem('token', result.token);
+                         getUsers();
+                         setIsOpen(false);
+-                        showToast(result.message, 'success');
++                        showToast(result?.message, 'success');
+                     })
+                     .catch((err: any) => {
+-                        showToast(err.message, 'error');
++                        showToast(err.message || 'you can not invite', 'error');
+                     });
+             }
+         }
+     };
++
++    console.log('accessAreaData', accessAreaData, pageAreaData);
+ 
+     const currentTableData = useMemo(
+         () =>
+@@ -408,6 +415,11 @@
+ 
+     const openDrawer = () => {
+         setUserData({
++            createdBy: '',
++            isCustomGroup: false,
++            permissionId: '',
++            updatedAt: '',
++            updatedBy: '',
+             _id: '',
+             company: '',
+             createdAt: '',
+@@ -449,6 +461,7 @@
+         },
+         []
+     );
++    console.log('userData', userData);
+ 
+     useEffect(() => {
+         if (isOpen) {
+Index: src/components/AdminDrawer/AdminDrawer.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/components/AdminDrawer/AdminDrawer.tsx b/src/components/AdminDrawer/AdminDrawer.tsx
+--- a/src/components/AdminDrawer/AdminDrawer.tsx	(revision Staged)
++++ b/src/components/AdminDrawer/AdminDrawer.tsx	(date 1686916298462)
+@@ -21,9 +21,14 @@
+     type IBrandsPermissions,
+     ICompanyData,
+     IGroup,
++    IPermissionData,
+ } from '../../data/common';
+ import { IColumnType } from '../Common/Table/Table';
+-import { getAllBrands, getAllPageAreas } from '../../services/api/api';
++import {
++    getAllBrands,
++    getAllPageAreas,
++    getPermissions,
++} from '../../services/api/api';
+ import { showToast } from '../../data/utils/toast';
+ import {
+     IGetAllBrandData,
+@@ -73,9 +78,9 @@
+     setEditGroup,
+     isOpen,
+     openDrawer,
+-    accessAreaData,
++    accessAreaData = [],
+     setAccessAreaData,
+-    pageAreaData,
++    pageAreaData = [],
+     setPageAreaData,
+     isUser,
+     handleSubmit,
+@@ -90,14 +95,39 @@
+     const [allBrandData, setAllBrandData] = useState<IGetAllBrandData[] | null>(
+         null
+     );
++    const [permissionsData, setPermissionsData] =
++        useState<IPermissionData | null>(null);
++
+     const [allPageAreaData, setAllPageAreaData] = useState<
+         IGetAllPageAreasData[] | null
+     >(null);
+ 
+     const [selectedGroup, setSelectedGroup] = useState<IGroup>();
+ 
++    const getGroupPermissions = () => {
++        getPermissions(editUserData?.permissionId)
++            .then((result) => {
++                setPermissionsData(result);
++                if (setPageAreaData) {
++                    setPageAreaData(result?.permission?.pageAreasPermissions);
++                }
++                if (setAccessAreaData) {
++                    setAccessAreaData(result?.permission?.brandsPermissions);
++                }
++            })
++            .catch((err) => {
++                showToast(
++                    err?.errors?.[0]?.message || 'something went wrong',
++                    'error'
++                );
++            });
++    };
++
+     useEffect(() => {
+         if (isCompany && isOpen) return;
++        if (editUserData?.permissionId) {
++            getGroupPermissions();
++        }
+         if (isOpen) {
+             getAllBrands()
+                 .then((result) => {
+@@ -121,7 +151,7 @@
+                     );
+                 });
+         }
+-    }, [isCompany, isOpen]);
++    }, [isCompany, isOpen, editUserData, selectedGroup]);
+ 
+     const isDisabled = useMemo(() => {
+         if (isUser && selectedGroup?.name !== 'No-Groups') {
+@@ -139,6 +169,7 @@
+             }
+             return true;
+         }
++
+         return false;
+     }, [selectedGroup?.name, isUser]);
+ 
+@@ -169,7 +200,7 @@
+                     name: 'No-Groups',
+                     updatedAt: '',
+                     _id: '2',
+-                    permissionId: 'No-Groups',
++                    permissionId: '',
+                     __v: 0,
+                     permission: {
+                         _id: 'No-Groups',
+@@ -185,304 +216,353 @@
+         return groups;
+     }, [groups]);
+ 
++    useEffect(() => {
++        if (selectedGroup?.name === 'No-Groups') {
++            if (setPageAreaData) {
++                setPageAreaData([]);
++            }
++            if (setAccessAreaData) {
++                setAccessAreaData([]);
++            }
++        }
++    }, [selectedGroup]);
+     const sideBarTableColumns: IColumnType<IGetAllPageAreasData>[] = [
+         {
+             key: 'name',
+             width: 70,
+             title: 'PageAreas',
+-            render: (_, i) => (
+-                <div className="flex items-center gap-x-1">
+-                    <PrimaryInput
+-                        disabled={isDisabled}
+-                        isCheckbox
+-                        type="checkbox"
+-                        checked={
+-                            pageAreaData
+-                                ?.map((item) => item?.pageAccessId)
+-                                ?.includes(i?._id) ||
+-                            selectedGroup?.permission?.pageAreasPermissions
+-                                .map(
+-                                    (item: IPagePermissions) =>
+-                                        item?.pageAccessId
+-                                )
+-                                .includes(i?._id) ||
+-                            (isEditGroupDrawer &&
+-                                editGroup?.permission?.pageAreasPermissions
+-                                    ?.map(
+-                                        (item: IPagePermissions) =>
+-                                            item?.pageAccessId
+-                                    )
+-                                    ?.includes(i?._id))
+-                        }
+-                        onChange={() => {
+-                            const isChecked = pageAreaData?.find(
+-                                (item) => item?.pageAccessId === i?._id
+-                            );
+-                            const isEdit =
+-                                editGroup?.permission?.pageAreasPermissions?.find(
+-                                    (item: IPagePermissions) =>
+-                                        item?.pageAccessId === i?._id
+-                                );
+-                            if (isEditGroupDrawer && !isEdit && !isChecked) {
+-                                if (setEditGroup && editGroup) {
+-                                    setEditGroup({
+-                                        ...editGroup,
+-                                        permission: {
+-                                            ...editGroup.permission,
+-                                            pageAreasPermissions: [
+-                                                ...editGroup.permission
+-                                                    .pageAreasPermissions,
+-                                                {
+-                                                    pageAccessId: i?._id,
+-                                                    isRead: true,
+-                                                    isWrite: true,
+-                                                },
+-                                            ],
+-                                        },
+-                                    });
+-                                }
+-                            }
+-                            if (
+-                                isEditGroupDrawer &&
+-                                isEdit &&
+-                                isEdit?.pageAccessId === i?._id
+-                            ) {
+-                                if (setEditGroup && editGroup) {
+-                                    setEditGroup({
+-                                        ...editGroup,
+-                                        permission: {
+-                                            ...editGroup.permission,
+-                                            pageAreasPermissions:
+-                                                editGroup?.permission?.pageAreasPermissions?.filter(
+-                                                    (ite) =>
+-                                                        ite?.pageAccessId !==
+-                                                        i?._id
+-                                                ) || [],
+-                                        },
+-                                    });
+-                                }
+-                            }
++            render: (_, i) => {
++                return (
++                    <div className="flex items-center gap-x-1">
++                        <PrimaryInput
++                            disabled={isDisabled}
++                            isCheckbox
++                            type="checkbox"
++                            checked={
++                                (selectedGroup?.name !== 'Select group' &&
++                                    pageAreaData
++                                        ?.map((item) => item?.pageAccessId)
++                                        ?.includes(i?._id)) ||
++                                false ||
++                                (selectedGroup?.name !== 'Select group' &&
++                                    selectedGroup?.permission?.pageAreasPermissions
++                                        .map(
++                                            (item: IPagePermissions) =>
++                                                item?.pageAccessId
++                                        )
++                                        .includes(i?._id)) ||
++                                false ||
++                                (selectedGroup?.name !== 'No-Groups' &&
++                                    selectedGroup?.name !== 'Select group' &&
++                                    !isEditGroupDrawer &&
++                                    permissionsData?.permission?.pageAreasPermissions
++                                        ?.map((items) => items?.pageAccessId)
++                                        ?.includes(i?._id)) ||
++                                false ||
++                                (isEditGroupDrawer &&
++                                    editGroup?.permission?.pageAreasPermissions
++                                        ?.map(
++                                            (item: IPagePermissions) =>
++                                                item?.pageAccessId
++                                        )
++                                        ?.includes(i?._id)) ||
++                                false
++                            }
++                            onChange={() => {
++                                const isChecked = pageAreaData?.find(
++                                    (item) => item?.pageAccessId === i?._id
++                                );
++                                const isEdit =
++                                    editGroup?.permission?.pageAreasPermissions?.find(
++                                        (item: IPagePermissions) =>
++                                            item?.pageAccessId === i?._id
++                                    );
++                                if (
++                                    isEditGroupDrawer &&
++                                    !isEdit &&
++                                    !isChecked
++                                ) {
++                                    if (setEditGroup && editGroup) {
++                                        setEditGroup({
++                                            ...editGroup,
++                                            permission: {
++                                                ...editGroup.permission,
++                                                pageAreasPermissions: [
++                                                    ...editGroup.permission
++                                                        .pageAreasPermissions,
++                                                    {
++                                                        pageAccessId: i?._id,
++                                                        isRead: true,
++                                                        isWrite: true,
++                                                    },
++                                                ],
++                                            },
++                                        });
++                                    }
++                                }
++                                if (
++                                    isEditGroupDrawer &&
++                                    isEdit &&
++                                    isEdit?.pageAccessId === i?._id
++                                ) {
++                                    if (setEditGroup && editGroup) {
++                                        setEditGroup({
++                                            ...editGroup,
++                                            permission: {
++                                                ...editGroup.permission,
++                                                pageAreasPermissions:
++                                                    editGroup?.permission?.pageAreasPermissions?.filter(
++                                                        (ite) =>
++                                                            ite?.pageAccessId !==
++                                                            i?._id
++                                                    ) || [],
++                                            },
++                                        });
++                                    }
++                                }
+ 
+-                            if (
+-                                isChecked &&
+-                                !isEditGroupDrawer &&
+-                                (isChecked?.isRead || isChecked?.isWrite)
+-                            ) {
+-                                const checkList =
+-                                    pageAreaData &&
+-                                    pageAreaData.filter(
+-                                        (item) => item?.pageAccessId !== i?._id
+-                                    );
+-                                if (setPageAreaData) {
+-                                    setPageAreaData(
+-                                        checkList as IPagePermissions[]
+-                                    );
+-                                }
+-                            } else if (setPageAreaData && !isEditGroupDrawer) {
+-                                setPageAreaData([
+-                                    ...(pageAreaData as IPagePermissions[]),
+-                                    {
+-                                        pageAccessId: i?._id,
+-                                        isRead: true,
+-                                        isWrite: true,
+-                                    } as IPagePermissions,
+-                                ]);
+-                            }
+-                        }}
+-                    />
+-                    <div className="flex items-center text-sm">{i?.name}</div>
+-                </div>
+-            ),
++                                if (
++                                    isChecked &&
++                                    !isEditGroupDrawer &&
++                                    (isChecked?.isRead || isChecked?.isWrite)
++                                ) {
++                                    const checkList =
++                                        pageAreaData &&
++                                        pageAreaData.filter(
++                                            (item) =>
++                                                item?.pageAccessId !== i?._id
++                                        );
++                                    if (setPageAreaData) {
++                                        setPageAreaData(checkList);
++                                    }
++                                } else if (
++                                    (setPageAreaData && !isEditGroupDrawer) ||
++                                    selectedGroup?.name === 'No-Groups'
++                                ) {
++                                    if (setPageAreaData) {
++                                        setPageAreaData([
++                                            ...pageAreaData,
++                                            {
++                                                pageAccessId: i?._id,
++                                                isRead: true,
++                                                isWrite: true,
++                                            } as IPagePermissions,
++                                        ]);
++                                    }
++                                }
++                            }}
++                        />
++                        <div className="flex items-center text-sm">
++                            {i?.name}
++                        </div>
++                    </div>
++                );
++            },
+         },
+ 
+         {
+             key: 'read',
+             width: 10,
+             title: 'Read',
+-            render: (_, i) => (
+-                <PrimaryInput
+-                    disabled={isDisabled}
+-                    checked={
+-                        isDisabled
+-                            ? selectedGroup?.permission.pageAreasPermissions?.find(
+-                                  (item: IPagePermissions) =>
+-                                      item?.pageAccessId === i?._id
+-                              )?.isRead
+-                            : (!isEditGroupDrawer &&
+-                                  pageAreaData?.find(
+-                                      (item) => item?.pageAccessId === i?._id
+-                                  )?.isRead) ||
+-                              (isEditGroupDrawer &&
+-                                  editGroup?.permission?.pageAreasPermissions?.find(
+-                                      (items: IPagePermissions) =>
+-                                          items?.pageAccessId === i?._id
+-                                  )?.isRead) ||
+-                              false
+-                    }
+-                    onChange={() => {
+-                        const record =
+-                            pageAreaData &&
+-                            pageAreaData.find(
+-                                (item) => item?.pageAccessId === i?._id
+-                            );
+-                        const editRecord =
+-                            editGroup?.permission?.pageAreasPermissions?.find(
+-                                (value: IPagePermissions) =>
+-                                    value?.pageAccessId === i?._id
+-                            );
+-                        if (isEditGroupDrawer) {
+-                            const editData =
+-                                editGroup?.permission?.pageAreasPermissions &&
+-                                editGroup.permission?.pageAreasPermissions.map(
+-                                    (item: IPagePermissions) => {
+-                                        if (
+-                                            editRecord &&
+-                                            editRecord?.isRead &&
+-                                            item?.pageAccessId === i?._id &&
+-                                            !editRecord?.isWrite
+-                                        ) {
+-                                            return {
+-                                                ...item,
+-                                                pageAccessId: '',
+-                                                isRead: false,
+-                                                isWrite: false,
+-                                            } as IPagePermissions;
+-                                        }
+-                                        if (
+-                                            editRecord &&
+-                                            editRecord?.isRead &&
+-                                            item?.pageAccessId === i?._id &&
+-                                            editRecord?.isWrite
+-                                        ) {
+-                                            return {
+-                                                ...item,
+-                                                pageAccessId: i?._id,
+-                                                isRead: false,
+-                                                isWrite: true,
+-                                            } as IPagePermissions;
+-                                        }
+-                                        if (
+-                                            editRecord &&
+-                                            !editRecord?.isRead &&
+-                                            item?.pageAccessId === i?._id &&
+-                                            editRecord?.isWrite
+-                                        ) {
+-                                            return {
+-                                                ...item,
+-                                                pageAccessId: i?._id,
+-                                                isRead: true,
+-                                                isWrite: true,
+-                                            } as IPagePermissions;
+-                                        }
+-                                        return item;
+-                                    }
+-                                );
++            render: (_, i) => {
++                return (
++                    <PrimaryInput
++                        disabled={isDisabled}
++                        checked={
++                            isDisabled
++                                ? (selectedGroup?.name !== 'Select group' &&
++                                      selectedGroup?.permission.pageAreasPermissions?.find(
++                                          (item: IPagePermissions) =>
++                                              item?.pageAccessId === i?._id
++                                      )?.isRead) ||
++                                  (selectedGroup?.name !== 'Select group' &&
++                                      permissionsData?.permission?.pageAreasPermissions?.find(
++                                          (value) =>
++                                              value?.pageAccessId === i?._id
++                                      )?.isRead)
++                                : (!isEditGroupDrawer &&
++                                      selectedGroup?.name !== 'Select group' &&
++                                      pageAreaData?.find(
++                                          (item) =>
++                                              item?.pageAccessId === i?._id
++                                      )?.isRead) ||
++                                  (isEditGroupDrawer &&
++                                      editGroup?.permission?.pageAreasPermissions?.find(
++                                          (items: IPagePermissions) =>
++                                              items?.pageAccessId === i?._id
++                                      )?.isRead) ||
++                                  false
++                        }
++                        onChange={() => {
++                            const record =
++                                pageAreaData &&
++                                pageAreaData.find(
++                                    (item) => item?.pageAccessId === i?._id
++                                );
++                            const editRecord =
++                                editGroup?.permission?.pageAreasPermissions?.find(
++                                    (value: IPagePermissions) =>
++                                        value?.pageAccessId === i?._id
++                                );
++                            if (isEditGroupDrawer) {
++                                const editData =
++                                    editGroup?.permission
++                                        ?.pageAreasPermissions &&
++                                    editGroup.permission?.pageAreasPermissions.map(
++                                        (item: IPagePermissions) => {
++                                            if (
++                                                editRecord &&
++                                                editRecord?.isRead &&
++                                                item?.pageAccessId === i?._id &&
++                                                !editRecord?.isWrite
++                                            ) {
++                                                return {
++                                                    ...item,
++                                                    pageAccessId: '',
++                                                    isRead: false,
++                                                    isWrite: false,
++                                                } as IPagePermissions;
++                                            }
++                                            if (
++                                                editRecord &&
++                                                editRecord?.isRead &&
++                                                item?.pageAccessId === i?._id &&
++                                                editRecord?.isWrite
++                                            ) {
++                                                return {
++                                                    ...item,
++                                                    pageAccessId: i?._id,
++                                                    isRead: false,
++                                                    isWrite: true,
++                                                } as IPagePermissions;
++                                            }
++                                            if (
++                                                editRecord &&
++                                                !editRecord?.isRead &&
++                                                item?.pageAccessId === i?._id &&
++                                                editRecord?.isWrite
++                                            ) {
++                                                return {
++                                                    ...item,
++                                                    pageAccessId: i?._id,
++                                                    isRead: true,
++                                                    isWrite: true,
++                                                } as IPagePermissions;
++                                            }
++                                            return item;
++                                        }
++                                    );
+ 
+-                            if (
+-                                setEditGroup &&
+-                                isEditGroupDrawer &&
+-                                editGroup
+-                            ) {
+-                                setEditGroup({
+-                                    ...editGroup,
+-                                    permission: {
+-                                        ...editGroup.permission,
+-                                        pageAreasPermissions: editData?.filter(
+-                                            (items) =>
+-                                                items?.pageAccessId !== ''
+-                                        ) as IPagePermissions[],
+-                                    },
+-                                });
+-                            }
+-                            if (!editRecord && isEditGroupDrawer) {
+-                                if (setEditGroup && editGroup) {
+-                                    setEditGroup({
+-                                        ...editGroup,
+-                                        permission: {
+-                                            ...editGroup.permission,
+-                                            pageAreasPermissions: [
+-                                                ...editGroup.permission
+-                                                    .pageAreasPermissions,
+-                                                {
+-                                                    pageAccessId: i?._id,
+-                                                    isRead: true,
+-                                                    isWrite: false,
+-                                                },
+-                                            ],
+-                                        },
+-                                    });
+-                                }
+-                            }
+-                        }
+-                        const updated =
+-                            !isEditGroupDrawer &&
+-                            pageAreaData &&
+-                            pageAreaData.map((ite) => {
+-                                if (
+-                                    record &&
+-                                    record?.isRead &&
+-                                    ite?.pageAccessId ===
+-                                        record?.pageAccessId &&
+-                                    !record?.isWrite
+-                                ) {
+-                                    return {
+-                                        ...record,
+-                                        pageAccessId: '',
+-                                        isRead: false,
+-                                        isWrite: false,
+-                                    } as IPagePermissions;
+-                                }
+-                                if (
+-                                    record &&
+-                                    record.isRead &&
+-                                    ite?.pageAccessId === record?.pageAccessId
+-                                ) {
+-                                    return {
+-                                        ...record,
+-                                        isRead: false,
+-                                    } as IPagePermissions;
+-                                }
+-                                if (
+-                                    record &&
+-                                    !record.isRead &&
+-                                    ite?.pageAccessId === record?.pageAccessId
+-                                ) {
+-                                    return {
+-                                        ...ite,
+-                                        isRead: true,
+-                                    } as IPagePermissions;
+-                                }
++                                if (
++                                    setEditGroup &&
++                                    isEditGroupDrawer &&
++                                    editGroup
++                                ) {
++                                    setEditGroup({
++                                        ...editGroup,
++                                        permission: {
++                                            ...editGroup.permission,
++                                            pageAreasPermissions:
++                                                editData?.filter(
++                                                    (items) =>
++                                                        items?.pageAccessId !==
++                                                        ''
++                                                ) as IPagePermissions[],
++                                        },
++                                    });
++                                }
++                                if (!editRecord && isEditGroupDrawer) {
++                                    if (setEditGroup && editGroup) {
++                                        setEditGroup({
++                                            ...editGroup,
++                                            permission: {
++                                                ...editGroup.permission,
++                                                pageAreasPermissions: [
++                                                    ...editGroup.permission
++                                                        .pageAreasPermissions,
++                                                    {
++                                                        pageAccessId: i?._id,
++                                                        isRead: true,
++                                                        isWrite: false,
++                                                    },
++                                                ],
++                                            },
++                                        });
++                                    }
++                                }
++                            }
++                            const updated =
++                                !isEditGroupDrawer &&
++                                pageAreaData &&
++                                pageAreaData.map((ite) => {
++                                    if (
++                                        record &&
++                                        record?.isRead &&
++                                        ite?.pageAccessId ===
++                                            record?.pageAccessId &&
++                                        !record?.isWrite
++                                    ) {
++                                        return {
++                                            ...record,
++                                            pageAccessId: '',
++                                            isRead: false,
++                                            isWrite: false,
++                                        } as IPagePermissions;
++                                    }
++                                    if (
++                                        record &&
++                                        record.isRead &&
++                                        ite?.pageAccessId ===
++                                            record?.pageAccessId
++                                    ) {
++                                        return {
++                                            ...record,
++                                            isRead: false,
++                                        } as IPagePermissions;
++                                    }
++                                    if (
++                                        record &&
++                                        !record.isRead &&
++                                        ite?.pageAccessId ===
++                                            record?.pageAccessId
++                                    ) {
++                                        return {
++                                            ...ite,
++                                            isRead: true,
++                                        } as IPagePermissions;
++                                    }
+ 
+-                                return ite;
+-                            });
++                                    return ite;
++                                });
+ 
+-                        if (setPageAreaData && !isEditGroupDrawer) {
+-                            setPageAreaData(
+-                                (updated as IPagePermissions[]).filter(
+-                                    (item) => item?.pageAccessId !== ''
+-                                )
+-                            );
+-                        }
++                            if (setPageAreaData && !isEditGroupDrawer) {
++                                setPageAreaData(
++                                    (updated as IPagePermissions[]).filter(
++                                        (item) => item?.pageAccessId !== ''
++                                    )
++                                );
++                            }
+ 
+-                        if (!record) {
+-                            if (setPageAreaData) {
+-                                setPageAreaData([
+-                                    ...(pageAreaData as IPagePermissions[]),
+-                                    {
+-                                        pageAccessId: i?._id,
+-                                        isRead: true,
+-                                        isWrite: false,
+-                                    } as IPagePermissions,
+-                                ]);
+-                            }
+-                        }
+-                    }}
+-                    value={i?.name}
+-                    name="read"
+-                    isCheckbox
+-                    type="checkbox"
+-                />
+-            ),
++                            if (!record) {
++                                if (setPageAreaData) {
++                                    setPageAreaData([
++                                        ...pageAreaData,
++                                        {
++                                            pageAccessId: i?._id,
++                                            isRead: true,
++                                            isWrite: false,
++                                        } as IPagePermissions,
++                                    ]);
++                                }
++                            }
++                        }}
++                        value={i?.name}
++                        name="read"
++                        isCheckbox
++                        type="checkbox"
++                    />
++                );
++            },
+         },
+         {
+             key: 'write',
+@@ -493,10 +573,15 @@
+                     disabled={isDisabled}
+                     checked={
+                         isDisabled
+-                            ? selectedGroup?.permission?.pageAreasPermissions?.find(
+-                                  (item: IPagePermissions) =>
+-                                      item?.pageAccessId === i?._id
+-                              )?.isWrite
++                            ? (selectedGroup?.name !== 'Select group' &&
++                                  selectedGroup?.permission?.pageAreasPermissions?.find(
++                                      (item: IPagePermissions) =>
++                                          item?.pageAccessId === i?._id
++                                  )?.isWrite) ||
++                              (selectedGroup?.name !== 'Select group' &&
++                                  permissionsData?.permission?.pageAreasPermissions?.find(
++                                      (value) => value?.pageAccessId === i?._id
++                                  )?.isWrite)
+                             : (!isEditGroupDrawer &&
+                                   pageAreaData?.find(
+                                       (item) => item?.pageAccessId === i?._id
+@@ -644,7 +729,7 @@
+                             });
+                         if (setPageAreaData) {
+                             setPageAreaData(
+-                                (updated as IPagePermissions[]).filter(
++                                updated.filter(
+                                     (item) => item?.pageAccessId !== ''
+                                 )
+                             );
+@@ -653,7 +738,7 @@
+                         if (!record) {
+                             if (setPageAreaData) {
+                                 setPageAreaData([
+-                                    ...(pageAreaData as IPagePermissions[]),
++                                    ...pageAreaData,
+                                     {
+                                         pageAccessId: i?._id,
+                                         isRead: false,
+@@ -682,14 +767,26 @@
+                     <PrimaryInput
+                         disabled={isDisabled}
+                         checked={
+-                            accessAreaData
+-                                ?.map((item) => item?.brandId)
+-                                ?.includes(i?._id) ||
+-                            selectedGroup?.permission?.brandsPermissions
+-                                .map(
+-                                    (item: IBrandsPermissions) => item?.brandId
+-                                )
+-                                .includes(i?._id) ||
++                            (selectedGroup?.name !== 'Select group' &&
++                                accessAreaData
++                                    ?.map((item) => item?.brandId)
++                                    ?.includes(i?._id)) ||
++                            false ||
++                            (selectedGroup?.name !== 'Select group' &&
++                                selectedGroup?.permission?.brandsPermissions
++                                    .map(
++                                        (item: IBrandsPermissions) =>
++                                            item?.brandId
++                                    )
++                                    .includes(i?._id)) ||
++                            false ||
++                            (selectedGroup?.name !== 'No-Groups' &&
++                                selectedGroup?.name !== 'Select group' &&
++                                !isEditGroupDrawer &&
++                                permissionsData?.permission?.brandsPermissions
++                                    ?.map((value) => value?.brandId)
++                                    ?.includes(i?._id)) ||
++                            false ||
+                             (isEditGroupDrawer &&
+                                 editGroup?.permission?.brandsPermissions
+                                     ?.map(
+@@ -760,22 +857,22 @@
+                                         (item) => item?.brandId !== i?._id
+                                     );
+                                 if (setAccessAreaData) {
+-                                    setAccessAreaData(
+-                                        checkList as IBrandsPermissions[]
+-                                    );
++                                    setAccessAreaData(checkList);
+                                 }
+                             } else if (
+-                                setAccessAreaData &&
+-                                !isEditGroupDrawer
++                                (setAccessAreaData && !isEditGroupDrawer) ||
++                                selectedGroup?.name === 'No-Groups'
+                             ) {
+-                                setAccessAreaData([
+-                                    ...(accessAreaData as IBrandsPermissions[]),
+-                                    {
+-                                        brandId: i?._id,
+-                                        isRead: true,
+-                                        isWrite: true,
+-                                    } as IBrandsPermissions,
+-                                ]);
++                                if (setAccessAreaData) {
++                                    setAccessAreaData([
++                                        ...accessAreaData,
++                                        {
++                                            brandId: i?._id,
++                                            isRead: true,
++                                            isWrite: true,
++                                        } as IBrandsPermissions,
++                                    ]);
++                                }
+                             }
+                         }}
+                         value={i?.name}
+@@ -798,10 +895,15 @@
+                     disabled={isDisabled}
+                     checked={
+                         isDisabled
+-                            ? selectedGroup?.permission?.brandsPermissions?.find(
+-                                  (item: IBrandsPermissions) =>
+-                                      item?.brandId === i?._id
+-                              )?.isRead
++                            ? (selectedGroup?.name !== 'Select group' &&
++                                  selectedGroup?.permission?.brandsPermissions?.find(
++                                      (item: IBrandsPermissions) =>
++                                          item?.brandId === i?._id
++                                  )?.isRead) ||
++                              (selectedGroup?.name !== 'Select group' &&
++                                  permissionsData?.permission?.brandsPermissions?.find(
++                                      (value) => value?.brandId === i?._id
++                                  )?.isRead)
+                             : (!isEditGroupDrawer &&
+                                   accessAreaData?.find(
+                                       (item) => item?.brandId === i?._id
+@@ -963,7 +1065,7 @@
+                         if (!record) {
+                             if (setAccessAreaData) {
+                                 setAccessAreaData([
+-                                    ...(accessAreaData as IBrandsPermissions[]),
++                                    ...accessAreaData,
+                                     {
+                                         brandId: i._id,
+                                         isRead: true,
+@@ -989,9 +1091,14 @@
+                     disabled={isDisabled}
+                     checked={
+                         isDisabled
+-                            ? selectedGroup?.permission?.brandsPermissions?.find(
+-                                  (item) => item?.brandId === i?._id
+-                              )?.isWrite
++                            ? (selectedGroup?.name !== 'Select group' &&
++                                  selectedGroup?.permission?.brandsPermissions?.find(
++                                      (item) => item?.brandId === i?._id
++                                  )?.isWrite) ||
++                              (selectedGroup?.name !== 'Select group' &&
++                                  permissionsData?.permission?.brandsPermissions?.find(
++                                      (value) => value?.brandId === i?._id
++                                  )?.isWrite)
+                             : (!isEditGroupDrawer &&
+                                   accessAreaData?.find(
+                                       (item) => item?.brandId === i?._id
+@@ -1140,16 +1247,14 @@
+                             });
+                         if (setAccessAreaData) {
+                             setAccessAreaData(
+-                                (updated as IBrandsPermissions[]).filter(
+-                                    (item) => item?.brandId !== ''
+-                                )
++                                updated.filter((item) => item?.brandId !== '')
+                             );
+                         }
+ 
+                         if (!record) {
+                             if (setAccessAreaData) {
+                                 setAccessAreaData([
+-                                    ...(accessAreaData as IBrandsPermissions[]),
++                                    ...accessAreaData,
+                                     {
+                                         brandId: i?._id,
+                                         isRead: false,
+@@ -1462,17 +1567,39 @@
+                             </div>
+                             <div className="mt-5">
+                                 <Select
+-                                    editUser={selectedGroup?._id}
++                                    editUser={editUserData?.group}
+                                     isGroup
+                                     placeHolder="Select Groups"
+                                     options={(getOptions as IGroup[]) || []}
+                                     handleOnSelect={(
+                                         e: ChangeEvent<HTMLSelectElement>
+                                     ) => {
++                                        if (e.target.value === '2') {
++                                            setPermissionsData(null);
++                                            if (setAccessAreaData) {
++                                                setAccessAreaData([]);
++                                            }
++                                            if (setPageAreaData) {
++                                                setPageAreaData([]);
++                                            }
++                                        }
+                                         const group = groups?.find(
+                                             (item) =>
+                                                 item._id === e.target.value
+                                         );
++                                        if (e.target.value === '1') {
++                                            if (setAccessAreaData) {
++                                                setAccessAreaData([]);
++                                            }
++                                            if (setPageAreaData) {
++                                                setPageAreaData([]);
++                                            }
++                                        }
++
++                                        // if (groupRecord) {
++                                        //     setSelectedGroup(groupRecord);
++                                        // }
++
+                                         setSelectedGroup(group);
+                                         if (handleOnChange) {
+                                             handleOnChange(e, 'group');
+@@ -1507,7 +1634,7 @@
+                                                     Name of Group
+                                                 </span>
+                                             }
+-                                            type="tel"
++                                            type="text"
+                                             value={
+                                                 isEditGroupDrawer
+                                                     ? editGroup?.name
+Index: src/components/AuthComponent/LoginForm/LoginForm.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/components/AuthComponent/LoginForm/LoginForm.tsx b/src/components/AuthComponent/LoginForm/LoginForm.tsx
+--- a/src/components/AuthComponent/LoginForm/LoginForm.tsx	(revision Staged)
++++ b/src/components/AuthComponent/LoginForm/LoginForm.tsx	(date 1686906095621)
+@@ -102,7 +102,7 @@
+ 
+         verifyOtp(payload)
+             .then((result) => {
+-                localStorage.setItem('token', result.token);
++                localStorage.setItem('token', result?.token);
+                 if (result?.qr) {
+                     setQrCode(result?.qr);
+                 } else {
+@@ -177,7 +177,7 @@
+                 </div>
+             ) : (
+                 <>
+-                    <div className="flex items-center text-[32px] text-green-100 font-bold w-full">
++                    <div className="flex items-center text-[32px] text-green-100 font-extrabold w-full">
+                         Unlock the Possibilities of Your Business with Mozarto!
+                     </div>
+                     <div className="text-[16px] font-normal">
+Index: src/components/AuthComponent/ResetPassword/ResetPassword.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/components/AuthComponent/ResetPassword/ResetPassword.tsx b/src/components/AuthComponent/ResetPassword/ResetPassword.tsx
+--- a/src/components/AuthComponent/ResetPassword/ResetPassword.tsx	(revision Staged)
++++ b/src/components/AuthComponent/ResetPassword/ResetPassword.tsx	(date 1686906095630)
+@@ -1,7 +1,8 @@
+ import { ChangeEvent, useState } from 'react';
+ import classNames from 'classnames';
++import { useLocation } from 'react-router';
+ import { IPasswordData } from '../../../data/types/auth';
+-import { PrimaryButton, PrimaryInput, SuccessPage } from '../../Common';
++import { PrimaryButton, PrimaryInput } from '../../Common';
+ 
+ interface IResetPassword {
+     isError: boolean;
+@@ -9,7 +10,7 @@
+     validationErrors?: IPasswordData;
+     handleSubmit: () => void;
+     handleOnChange: (e: ChangeEvent<HTMLInputElement>, key: string) => void;
+-    isPassword: boolean;
++
+     handleOnSave: () => void;
+ }
+ 
+@@ -19,12 +20,12 @@
+     isNewAdmin,
+     handleOnChange,
+     handleSubmit,
+-    isPassword,
++
+     handleOnSave,
+ }: IResetPassword) => {
+     const [passwordType, setPasswordType] = useState('password');
+     const [confirmPasswordType, setConfirmPasswordType] = useState('password');
+-
++    const location = useLocation();
+     const togglePassword = () => {
+         if (passwordType === 'password') {
+             setPasswordType('text');
+@@ -40,22 +41,7 @@
+         setConfirmPasswordType('password');
+     };
+ 
+-    return isPassword ? (
+-        <SuccessPage
+-            subtitle={
+-                isNewAdmin
+-                    ? 'You have successfully reset your password'
+-                    : 'you have successfully reset your password'
+-            }
+-            title={
+-                isNewAdmin
+-                    ? 'Your new password has been created'
+-                    : 'Password has been reset'
+-            }
+-            icon="SUCCESS_LOGO"
+-            handleOnSubmit={handleOnSave}
+-        />
+-    ) : (
++    return (
+         <div className="flex flex-col justify-center items-start w-[500px] mx-auto">
+             <div className="flex items-center text-[32px] text-green-100 font-bold w-full">
+                 {isNewAdmin ? 'Create your Password' : 'New Password'}
+@@ -119,7 +105,11 @@
+                     </div>
+                 </div>
+                 <PrimaryButton
+-                    onClick={() => handleSubmit()}
++                    onClick={() =>
++                        location?.pathname === '/create-new-password'
++                            ? handleOnSave()
++                            : handleSubmit()
++                    }
+                     type="button"
+                     name="Submit"
+                     color="#2E672F"
+Index: src/components/Common/Header/Header.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/components/Common/Header/Header.tsx b/src/components/Common/Header/Header.tsx
+--- a/src/components/Common/Header/Header.tsx	(revision Staged)
++++ b/src/components/Common/Header/Header.tsx	(date 1686906095648)
+@@ -56,9 +56,11 @@
+                                     System time
+                                 </span>
+                                 <span className="text-sm text-green-200 font-medium">
+-                                    17:08:05 (UT0)
++                                    17:08:05
+                                 </span>
+                             </div>
++                            <div className="h-6 border border-solid border-y-0 border-l-0 border-gray-300" />
++                            <SvgIcon icon="NOTIFICATION" />
+                             <div className="h-6 border border-solid border-y-0 border-l-0 border-gray-300" />
+                             <div className="flex items-center">
+                                 <img
+Index: src/components/Common/Icon/Icons.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/components/Common/Icon/Icons.tsx b/src/components/Common/Icon/Icons.tsx
+--- a/src/components/Common/Icon/Icons.tsx	(revision Staged)
++++ b/src/components/Common/Icon/Icons.tsx	(date 1686906095697)
+@@ -1,6 +1,19 @@
+ import { IIcons } from '../../../data/common';
+ 
+ export const ICONS: IIcons = {
++    NOTIFICATION: (
++        <svg width="30" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
++            <path
++                fill="#000000"
++                d="M26.72 21.56a8.61 8.61 0 0 1-.88-3.8 1 1 0 0 0-2 0 10.64 10.64 0 0 0 1.08 4.68l1 2.13a.29.29 0 0 1 0 .3.24.24 0 0 1-.22.13H6.27a.24.24 0 0 1-.22-.13.29.29 0 0 1 0-.3l1-2.13a10.64 10.64 0 0 0 1.08-4.68V12A7.93 7.93 0 0 1 16 4a7.66 7.66 0 0 1 2.65.47 1 1 0 1 0 .7-1.88A9.77 9.77 0 0 0 16 2a9.94 9.94 0 0 0-9.84 10v5.76a8.61 8.61 0 0 1-.88 3.8l-1 2.13a2.29 2.29 0 0 0 .11 2.24A2.25 2.25 0 0 0 6.27 27h5.87a4 4 0 0 0 7.72 0h5.87a2.25 2.25 0 0 0 1.92-1.07 2.29 2.29 0 0 0 .11-2.24zM16 28a2 2 0 0 1-1.72-1h3.44A2 2 0 0 1 16 28z"
++            />
++            <path
++                fill="#ff0000"
++                stroke="#ff0000"
++                d="M13.53 6.11a7.41 7.41 0 0 0-4 6.61 1 1 0 0 0 2 0 5.42 5.42 0 0 1 2.91-4.83 1 1 0 1 0-.92-1.78zM24 15a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0-8a3 3 0 1 1-3 3 3 3 0 0 1 3-3z"
++            />
++        </svg>
++    ),
+     SUCCESS_LOGO: (
+         <svg
+             width="80"
+Index: src/components/Common/Select/Select.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/components/Common/Select/Select.tsx b/src/components/Common/Select/Select.tsx
+--- a/src/components/Common/Select/Select.tsx	(revision Staged)
++++ b/src/components/Common/Select/Select.tsx	(date 1686906095707)
+@@ -18,50 +18,59 @@
+     options,
+     label,
+     className,
+-}: ISelectProps) => (
+-    <div>
+-        <select
+-            placeholder={placeHolder}
+-            style={{
+-                display: 'flex',
+-                fontSize: '16px',
+-                fontWeight: 400,
+-                color: '#393838',
+-                width: '100%',
+-                padding: ' 8px',
+-                borderRadius: 6,
+-                marginTop: 4,
+-            }}
+-            onChange={handleOnSelect}
+-            name={label}
+-            id={label}
+-            className={className}
+-        >
+-            {options?.map((v, index) => {
+-                const getValue = () => {
+-                    if (index === 0 && editUser && isGroup) {
+-                        return '';
+-                    }
+-                    if (
+-                        ((isGroup || editUser) &&
+-                            index === options.length - 1) ||
+-                        v?.name === 'No-Groups'
+-                    ) {
+-                        return v?._id as string;
+-                    }
+-                    return v?._id as string;
+-                };
+-                return (
+-                    <option
+-                        key={index}
+-                        selected={editUser ? v?._id === editUser : index === 0}
+-                        value={getValue()}
+-                    >
+-                        {isGroup ? v?.name : v?.title}
+-                    </option>
+-                );
+-            })}
+-        </select>
+-    </div>
+-);
++}: ISelectProps) => {
++    console.log(editUser);
++    return (
++        <div>
++            <select
++                defaultValue={editUser}
++                placeholder={placeHolder}
++                style={{
++                    display: 'flex',
++                    fontSize: '16px',
++                    fontWeight: 400,
++                    color: '#393838',
++                    width: '100%',
++                    padding: ' 8px',
++                    borderRadius: 6,
++                    marginTop: 4,
++                }}
++                onChange={handleOnSelect}
++                name={label}
++                id={label}
++                className={className}
++            >
++                {options?.map((v, index) => {
++                    const getValue = () => {
++                        if (index === 0 && !editUser && isGroup) {
++                            return '1';
++                        }
++                        if (
++                            ((isGroup || editUser) &&
++                                index === options.length - 1) ||
++                            v?.name === 'No-Groups'
++                        ) {
++                            return v?._id as string;
++                        }
++                        return v?._id as string;
++                    };
++
++                    return (
++                        <option
++                            key={index}
++                            selected={
++                                editUser
++                                    ? v?._id === editUser
++                                    : index === 0 || editUser === null
++                            }
++                            value={getValue()}
++                        >
++                            {isGroup ? v?.name : v?.title}
++                        </option>
++                    );
++                })}
++            </select>
++        </div>
++    );
++};
+ export default Select;
+Index: src/components/Common/Switch/switch.css
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/components/Common/Switch/switch.css b/src/components/Common/Switch/switch.css
+--- a/src/components/Common/Switch/switch.css	(revision Staged)
++++ b/src/components/Common/Switch/switch.css	(date 1686906095721)
+@@ -7,6 +7,7 @@
+ .toggle-switch input[type='checkbox'] {
+     display: none;
+ }
++
+ .toggle-switch .switch {
+     position: absolute;
+     cursor: pointer;
+@@ -22,13 +23,13 @@
+     content: '';
+     left: 2px;
+     top: 0;
+-    width: 20px;
+-    height: 20px;
+-    background-color: #2e672f;
++    width: 18px;
++    height: 18px;
++    background-color: #c8c8c8;
+     border-radius: 50%;
+     transition: transform 0.3s ease;
+ }
+ .toggle-switch input[type='checkbox']:checked + .switch::before {
+     transform: translateX(25px);
+-    background-color: #2e672f;
++    background-color: #8fb131;
+ }
+Index: src/components/Common/Switch/Switch.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/components/Common/Switch/Switch.tsx b/src/components/Common/Switch/Switch.tsx
+--- a/src/components/Common/Switch/Switch.tsx	(revision Staged)
++++ b/src/components/Common/Switch/Switch.tsx	(date 1686906095733)
+@@ -9,6 +9,13 @@
+     const [isToggled, setIsToggled] = useState(false);
+     const onToggle = () => setIsToggled(!isToggled);
+     return (
++        // <div className='toggle-switch'>
++        //   <label>
++        //     <input type='checkbox'>
++        //       <span className='slider'></span>
++        //   </label>
++        //
++        // </div>
+         <label className={`${className as string} toggle-switch `}>
+             <input
+                 type="checkbox"
+Index: src/components/Common/index.ts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/components/Common/index.ts b/src/components/Common/index.ts
+--- a/src/components/Common/index.ts	(revision Staged)
++++ b/src/components/Common/index.ts	(date 1686916720958)
+@@ -11,6 +11,5 @@
+ export { default as Table } from './Table/Table';
+ export { default as Pagination } from './Pagination/Pagination';
+ export { default as UserDrawer } from './Drawer/Drawer';
+-export { default as SuccessPage } from './SuccessPage/SuccessPage';
+ export { default as PrimaryTextArea } from './TextArea/TextArea';
+ export { default as SvgIcon } from './Icon/SvgIcon';
+Index: src/context/Auth/AuthContext.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/context/Auth/AuthContext.tsx b/src/context/Auth/AuthContext.tsx
+--- a/src/context/Auth/AuthContext.tsx	(revision Staged)
++++ b/src/context/Auth/AuthContext.tsx	(date 1686906095762)
+@@ -5,7 +5,7 @@
+     useEffect,
+     useReducer,
+ } from 'react';
+-import { useNavigate } from 'react-router-dom';
++import { useNavigate, useSearchParams } from 'react-router-dom';
+ import {
+     AppActions,
+     AppActionsEnum,
+@@ -54,10 +54,11 @@
+ }) => {
+     const navigate = useNavigate();
+     const [auth, dispatch] = useReducer(AppReducer, AppInitialState);
+-
++    const [searchParams] = useSearchParams();
++    const token = searchParams.get('token') || '';
+     const fetchCurrentUser = async () => {
+         try {
+-            const currentUser = await getCurrentUser();
++            const currentUser = await getCurrentUser(token);
+             if (!currentUser?.user) {
+                 return dispatch({
+                     type: AppActionsEnum.SET_CURRENT_USER,
+@@ -91,17 +92,17 @@
+ 
+     useEffect(() => {
+         const token = localStorage.getItem('token') || '';
+-        if (!token) {
+-            navigate('/');
+-            return dispatch({
+-                type: AppActionsEnum.SET_CURRENT_USER,
+-                payload: {
+-                    authUser: null,
+-                    isLoggedIn: false,
+-                    role: null,
+-                },
+-            });
+-        }
++        // if (!token) {
++        //     navigate('/');
++        //     return dispatch({
++        //         type: AppActionsEnum.SET_CURRENT_USER,
++        //         payload: {
++        //             authUser: null,
++        //             isLoggedIn: false,
++        //             role: null,
++        //         },
++        //     });
++        // }
+         // if (auth?.isLoggedIn) {
+         //     return navigate('/dashboard');
+         // }
+Index: src/data/common/index.ts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/data/common/index.ts b/src/data/common/index.ts
+--- a/src/data/common/index.ts	(revision Staged)
++++ b/src/data/common/index.ts	(date 1686906095771)
+@@ -2,6 +2,7 @@
+ import { UserRoles } from '../constants/auth.constants';
+ 
+ export interface IIcons {
++    NOTIFICATION: ReactElement;
+     SHOW_PASSWORD: ReactElement;
+     HIDDEN_PASSWORD: ReactElement;
+     CLOSE_BUTTON: ReactElement;
+@@ -28,15 +29,20 @@
+ }
+ 
+ export interface ICreateUserData {
+-    createdAt?: string;
+     _id: string;
+     name: string;
+     email: string;
+     phone: string;
++    isCustomGroup: boolean;
++    group: string;
++    permissionId: string;
++    company: string;
++    updatedBy: string;
++    createdBy: string;
++    updatedAt: string;
++    createdAt?: string;
+     role: string;
+     job: string;
+-    group: string;
+-    company: string;
+ }
+ 
+ export interface IOptionProps {
+@@ -62,7 +68,11 @@
+     updatedAt: string;
+     __v?: number;
+ }
+-
++export interface IPermissionData {
++    status: string;
++    message: string;
++    permission: IPermission;
++}
+ export interface GroupDetails {
+     name: string;
+     permissionId: string;
+Index: src/data/types/response.d.ts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/data/types/response.d.ts b/src/data/types/response.d.ts
+--- a/src/data/types/response.d.ts	(revision Staged)
++++ b/src/data/types/response.d.ts	(date 1686906095781)
+@@ -4,8 +4,12 @@
+ export interface ICreateNewPasswordRes {
+     status: string;
+     message: string;
+-    user: ICreateNewPasswordUser;
++    token: string;
++    isSuccess: boolean;
++    qr: string;
++
+     errors: any;
++    user: ICreateNewPasswordUser;
+ }
+ 
+ export interface IVerifySignupRes {
+Index: src/pages/auth/NewAdminPassword.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/pages/auth/NewAdminPassword.tsx b/src/pages/auth/NewAdminPassword.tsx
+--- a/src/pages/auth/NewAdminPassword.tsx	(revision Staged)
++++ b/src/pages/auth/NewAdminPassword.tsx	(date 1686906095802)
+@@ -1,21 +1,32 @@
+-import { ChangeEvent, useCallback, useState } from 'react';
++import { ChangeEvent, useCallback, useEffect, useState } from 'react';
+ import { useNavigate } from 'react-router-dom';
++import classNames from 'classnames';
++import OtpInput from 'react-otp-input';
+ import { loginLogo } from '../../assets';
+ import { ResetPassword } from '../../components/AuthComponent';
+-import { ICreateNewPasswordReq } from '../../data/types/request';
+-import { createNewPassword } from '../../services/api/api';
++import { ICreateNewPasswordReq, IVerifyOTP } from '../../data/types/request';
++import { createNewPassword, verifyOtp } from '../../services/api/api';
+ import { IPasswordData } from '../../data/types/auth';
+ import { showToast } from '../../data/utils/toast';
+ import { validate } from '../../data/utils/common';
++import AuthenticationModal from '../../components/Modal/AuthenticationModal';
++import { AppActionsEnum } from '../../context/Auth/AuthContextValues';
++import { useAuthContext } from '../../context/Auth/AuthContext';
++import { PrimaryButton } from '../../components/Common';
+ 
+ const NewAdminPassword = () => {
+     const navigate = useNavigate();
+     const [isError, setIsError] = useState<boolean>(false);
+-    const [isPassword, setIsPassword] = useState<boolean>(false);
+     const [passwordValue, setPasswordValue] = useState<IPasswordData | null>();
+     const [validationErrors, setValidationError] = useState<
+         Partial<IPasswordData>
+     >({});
++    const [open, setOpen] = useState<boolean>(false);
++    const [otp, setOtp] = useState<string>('');
++    const { dispatch } = useAuthContext();
++    const [otpError, setOtpError] = useState<string>('');
++    const [qrCode, setQrCode] = useState('');
++    const digitLeftCount = 6 - otp.length;
+ 
+     const verifyUser = JSON.parse(localStorage.getItem('user') as string);
+ 
+@@ -38,11 +49,9 @@
+         if (Object.keys(errors)?.length) {
+             setValidationError(errors);
+             setIsError(true);
+-            setIsPassword(false);
+         } else {
+             setValidationError({});
+             setIsError(false);
+-            setIsPassword(true);
+         }
+     };
+ 
+@@ -56,7 +65,7 @@
+         },
+         []
+     );
+-
++    useEffect(() => localStorage.removeItem('token'), []);
+     const handleOnSave = () => {
+         if (!passwordValue) return;
+         const payload: ICreateNewPasswordReq = {
+@@ -65,10 +74,11 @@
+         };
+         createNewPassword(payload)
+             .then((result) => {
++                setQrCode(result?.qr);
+                 localStorage.setItem('user', JSON.stringify(result.user));
++                localStorage.setItem('token', result?.token);
+                 showToast('Your password created successfully', 'success');
+-                setIsPassword(false);
+-                navigate(`/`);
++                setOpen(true);
+             })
+             .catch((err) => {
+                 showToast(
+@@ -78,6 +88,38 @@
+             });
+     };
+ 
++    const onOTPVerify = () => {
++        if (!otp) {
++            setOtpError('Please Enter your OTP');
++            return;
++        }
++        if (otp.length < 6) {
++            setOtpError('Enter 6 digit OTP');
++            return;
++        }
++        const payload: IVerifyOTP = { code: otp };
++
++        verifyOtp(payload)
++            .then((result) => {
++                console.log('result', result);
++                // localStorage.setItem('token', result.token || token);
++                dispatch({
++                    type: AppActionsEnum.SET_CURRENT_USER,
++                    payload: {
++                        authUser: result.user,
++                        isLoggedIn: true,
++                        role: result.user?.role,
++                    },
++                });
++                setOtpError('');
++                showToast('successfully verified', 'success');
++                setOpen(false);
++                navigate('/dashboard');
++            })
++            .catch((err) => {
++                showToast(err.message, 'error');
++            });
++    };
+     return (
+         <div className="flex w-[100vw] h-[100vh]">
+             <div className="flex w-1/2 bg-amber-100">
+@@ -89,17 +131,74 @@
+                     height="100%"
+                 />
+             </div>
+-            <div className="mx-14 flex w-1/2">
+-                <ResetPassword
+-                    isNewAdmin
+-                    handleSubmit={handleSubmit}
+-                    isError={isError}
+-                    handleOnChange={handleOnChange}
+-                    validationErrors={validationErrors as IPasswordData}
+-                    isPassword={isPassword}
+-                    handleOnSave={handleOnSave}
+-                />
+-            </div>
++            {qrCode ? (
++                <div className="flex flex-col justify-center items-center mx-auto w-[500px]">
++                    <img src={qrCode} alt="code" height="50%" />
++                    <OtpInput
++                        value={otp}
++                        onChange={(value: string) => setOtp(value)}
++                        numInputs={6}
++                        renderSeparator={
++                            <span style={{ marginLeft: '13px' }} />
++                        }
++                        renderInput={(props: any) => (
++                            <input id="inputOtp" {...props} />
++                        )}
++                        inputStyle={{
++                            width: '53px',
++                            height: '55px',
++                            color: 'text-green-600',
++                            background: '#F7F7F7',
++                            border:
++                                otpError && otp.length < 6
++                                    ? '1px solid red'
++                                    : otp
++                                    ? '2px solid green'
++                                    : 'none',
++                            borderRadius: 15,
++                            fontSize: '30px',
++                            fontWeight: 500,
++                        }}
++                    />
++                    <PrimaryButton
++                        onClick={onOTPVerify}
++                        type="button"
++                        name={
++                            digitLeftCount === 0
++                                ? `Let's go`
++                                : `${digitLeftCount} Digits Left`
++                        }
++                        color="#2E672F"
++                        variant="filled"
++                        className={classNames(
++                            'ml-5 mt-5 flex justify-center items-center w-[88%] h-10 rounded-xl bg-zinc-300 text-base font-bold text-gray-400',
++                            {
++                                'bg-green-700 text-white': digitLeftCount === 0,
++                            }
++                        )}
++                    />
++                </div>
++            ) : (
++                <div className="mx-14 flex w-1/2">
++                    <ResetPassword
++                        isNewAdmin
++                        handleSubmit={handleSubmit}
++                        isError={isError}
++                        handleOnChange={handleOnChange}
++                        validationErrors={validationErrors as IPasswordData}
++                        handleOnSave={handleOnSave}
++                    />
++                    {open && (
++                        <AuthenticationModal
++                            setIsOpen={setOpen}
++                            handleVerifyOTP={onOTPVerify}
++                            setOtp={setOtp}
++                            otp={otp}
++                            otpError={otpError}
++                        />
++                    )}
++                </div>
++            )}
+         </div>
+     );
+ };
+Index: src/pages/auth/ResetPassword.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/pages/auth/ResetPassword.tsx b/src/pages/auth/ResetPassword.tsx
+--- a/src/pages/auth/ResetPassword.tsx	(revision Staged)
++++ b/src/pages/auth/ResetPassword.tsx	(date 1686906095821)
+@@ -17,7 +17,7 @@
+     const { dispatch } = useAuthContext();
+     const token = searchParams.get('token') || '';
+     const [isError, setIsError] = useState<boolean>(false);
+-    const [isPassword, setIsPassword] = useState<boolean>(false);
++    // const [isPassword, setIsPassword] = useState<boolean>(false);
+     const [passwordValue, setPasswordValue] = useState<IPasswordData | null>();
+     const [validationErrors, setValidationError] = useState<
+         | {
+@@ -48,7 +48,7 @@
+         if (Object.keys(errors)?.length) {
+             setValidationError(errors);
+             setIsError(true);
+-            setIsPassword(false);
++            // setIsPassword(false);
+         }
+         if (
+             passwordValue &&
+@@ -68,12 +68,14 @@
+             resetPassword(payload)
+                 .then((result) => {
+                     if (result.isSuccess) {
+-                        setIsPassword(true);
+-                    }
+-                    showToast(
+-                        result.message,
+-                        result.isSuccess ? 'success' : 'error'
+-                    );
++                        // setIsPassword(true);
++                        localStorage.setItem('token', token);
++                        setOpen(true);
++                        showToast(
++                            result.message,
++                            result.isSuccess ? 'success' : 'error'
++                        );
++                    }
+                 })
+                 .catch((err) => {
+                     showToast(err.message, 'error');
+@@ -98,8 +100,8 @@
+ 
+         verifyOtp(payload)
+             .then((result) => {
+-                console.log(result);
+-                // localStorage.setItem('token', result.token || token);
++                console.log('result', result);
++                localStorage.setItem('token', result.token || token);
+                 dispatch({
+                     type: AppActionsEnum.SET_CURRENT_USER,
+                     payload: {
+@@ -146,7 +148,7 @@
+                     isError={isError}
+                     handleOnChange={handleOnChange}
+                     validationErrors={validationErrors as IPasswordData}
+-                    isPassword={isPassword}
++                    // isPassword={isPassword}
+                     handleOnSave={handleOnSave}
+                 />
+                 {open && (
+Index: src/routes/routes.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/routes/routes.tsx b/src/routes/routes.tsx
+--- a/src/routes/routes.tsx	(revision Staged)
++++ b/src/routes/routes.tsx	(date 1686916569515)
+@@ -6,12 +6,12 @@
+ import PaymentTransactions from '../components/Payment/Transactions';
+ import Admin from '../pages/Admin/Admin';
+ import Audit from '../pages/Audit/Audit';
+-import ForgotPasswordPage from '../pages/Auth/ForgotPassword';
+-import Login from '../pages/Auth/Login';
+-import NewAdminPassword from '../pages/Auth/NewAdminPassword';
+-import ResetPasswordPage from '../pages/Auth/ResetPassword';
+-import ValidateResetToken from '../pages/Auth/ValidateResetToken';
+-import ValidateSignupToken from '../pages/Auth/ValidateSignupToken';
++import ForgotPasswordPage from '../pages/auth/ForgotPassword';
++import Login from '../pages/auth/Login';
++import NewAdminPassword from '../pages/auth/NewAdminPassword';
++import ResetPasswordPage from '../pages/auth/ResetPassword';
++import ValidateResetToken from '../pages/auth/ValidateResetToken';
++import ValidateSignupToken from '../pages/auth/ValidateSignupToken';
+ import Dashboard from '../pages/Dashboard/Dashboard';
+ 
+ import Payment from '../pages/Payment/Payment';
+Index: src/services/api/api.ts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/services/api/api.ts b/src/services/api/api.ts
+--- a/src/services/api/api.ts	(revision Staged)
++++ b/src/services/api/api.ts	(date 1686906095833)
+@@ -27,8 +27,8 @@
+ export const signIn = (requestObj: ISignInUser): Promise<ISignInRes> =>
+     axios.post('/users/signin', requestObj);
+ 
+-export const getCurrentUser = (): Promise<any> =>
+-    axios.get('users/get-current-user');
++export const getCurrentUser = (token: string): Promise<any> =>
++    axios.get(`users/get-current-user`);
+ 
+ export const verifyOtp = (requestObj: IVerifyOTP): Promise<any> =>
+     axios.post('users/verify-otp', requestObj);
+@@ -116,3 +116,8 @@
+     requestObj: any
+ ): Promise<any> => axios.put(`/company/update/${companyId}`, requestObj);
+ export const getCompanies = (): Promise<any> => axios.get('/company/get');
++/** **************************
++ *            Permissions           *
++ *************************** */
++export const getPermissions = (permissionId: string): Promise<any> =>
++    axios.get(`/permissions/get-by-id/${permissionId}`);
+Index: src/App.css
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/App.css b/src/App.css
+--- a/src/App.css	(revision Staged)
++++ b/src/App.css	(date 1686906095842)
+@@ -5,3 +5,10 @@
+     min-height: 100vh;
+     max-width: 100vw;
+ }
++.toast-message {
++    background: darkblue;
++    color: #fff;
++    font-size: 20px;
++    width: 34vw;
++    padding: 30px 20px;
++}
+\ No newline at end of file
